@@ -78,3 +78,7 @@ experimental/   BPF LSM versions of the policies (untested)
 - `setup/00-host-prep.sh` turns off swap and ufw. Use a dedicated lab VM.
 - The "toolkit" only prints messages. The "API key" and AWS credentials in
   this repo are fake decoys.
+
+## License
+
+[MIT](LICENSE)
