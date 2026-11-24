@@ -1,23 +1,5 @@
-# Layer 3: execution
-#
-# What it does:  stops any shell from starting in the webapp pod.
-# Why it's safe: the app never needs a shell (its own curl call uses
-#                subprocess with a list, not shell=True).
-# How:           a kprobe on security_bprm_check, which runs just before a new
-#                program replaces the current process (execve). The process
-#                that gets killed is the forked copy of the app that was
-#                about to become the shell, so events show
-#                "/usr/local/bin/python ... SIGKILL". The main app process
-#                keeps running.
-#
-# This layer alone ends the attack at step one. The demo enforces it last, so
-# layers 1 and 2 can be shown working on their own (defense in depth).
-#
-# Side effect: `kubectl exec -it ... -- sh` into this pod also fails while the
-# policy is enforcing.
-#
-# Ships in monitor mode. Switch to enforce with:
-#   scripts/policy.sh enforce block-shell
+# Layer 3: stop any shell from starting in the webapp pod.
+# While enforcing, `kubectl exec ... -- sh` into the pod fails too.
 apiVersion: cilium.io/v1alpha1
 kind: TracingPolicyNamespaced
 metadata:

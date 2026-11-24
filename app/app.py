@@ -55,8 +55,7 @@ def status():
 
 
 if __name__ == "__main__":
-    # Exit at once on SIGTERM. Without this, the Flask dev server ignores it,
-    # Kubernetes waits its 30 s grace period, then SIGKILLs the old pod, which
-    # shows up in Tetragon's events as a confusing "python app.py SIGKILL".
+    # The Flask dev server ignores SIGTERM; exit at once instead of being
+    # SIGKILLed after Kubernetes' 30 s grace period.
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     app.run(host="0.0.0.0", port=5000)

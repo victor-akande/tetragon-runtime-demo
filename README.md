@@ -63,7 +63,7 @@ openEuler 24.03 (kernel 6.6).
 ```
 setup/          host prep, preflight checks, install, image pre-pull, teardown
 scripts/        demo.sh (narrated runner), netpol-test.sh, attack.sh, policy.sh, watch-events.sh, tetra.sh
-policies/       the Tetragon TracingPolicies, one file per layer, heavily commented
+policies/       the Tetragon TracingPolicies, one file per layer
 k8s/            the demo workloads and the Cilium network policy
 app/            the deliberately vulnerable Flask app
 attacker/       the harmless fake toolkit the attacker downloads

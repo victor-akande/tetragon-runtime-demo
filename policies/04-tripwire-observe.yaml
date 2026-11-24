@@ -1,24 +1,7 @@
-# Layer 4a: stateful tripwire, observe only  (stateful tracing policies are new
-# in Tetragon 1.8)
-#
-# What it does:
-#   Probe 1: when anything opens the decoy file /app/.aws/credentials,
-#            set the policy's state "tripped" to 1.
-#   Probe 2: once tripped == 1, report every outbound connect() from the pod,
-#            whatever program makes it (curl, python, getent...).
-#
-# Why a decoy: the app never reads /app/.aws/credentials. Only someone
-# exploring the container would, so reading it is a strong signal.
-#
-# Limits (say these out loud):
-#   - State is shared by ALL probes in this policy. It is not per process or
-#     per pod. Per-process scoping was still an open upstream PR when this demo
-#     was written.
-#   - Nothing protects against races between probes.
-#   - Reset the state by deleting and re-applying the policy:
-#       scripts/policy.sh reset-tripwire
-#
-# 05-tripwire-lockdown.yaml is the same policy with Sigkill added.
+# Layer 4a: tripwire, observe only. Reading the decoy credentials sets
+# "tripped", after which every connect() from the pod is reported.
+# The state is shared by the whole policy; reset it with
+# scripts/policy.sh reset-tripwire.
 apiVersion: cilium.io/v1alpha1
 kind: TracingPolicyNamespaced
 metadata:

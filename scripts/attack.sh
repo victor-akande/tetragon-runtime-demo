@@ -12,8 +12,7 @@
 #   scripts/attack.sh tripwire     read the decoy credentials, then download with python
 #   scripts/attack.sh all          recon, token, use-token, download
 #
-# Set SHOW_FULL_TOKEN=1 to print the stolen token in full (it is shortened by
-# default so it doesn't end up in recordings).
+# Set SHOW_FULL_TOKEN=1 to print the stolen token in full (shortened by default).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export KUBECONFIG=${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}

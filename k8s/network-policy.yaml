@@ -1,9 +1,5 @@
-# A reasonable, least-privilege-looking network policy for the webapp.
-# It is NOT the weak point in the demo. Every step of the attack is
-# traffic this policy is supposed to allow:
-#   - inbound HTTP to the app (that's how the exploit arrives)
-#   - outbound HTTP to the internet (the app "calls partner APIs")
-# The talk's point: network policy did its job, and the attack still worked.
+# A sensible least-privilege policy for the webapp. Every step of the attack
+# uses traffic it allows: inbound HTTP to the app and outbound HTTP.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
