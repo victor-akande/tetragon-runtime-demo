@@ -1,19 +1,5 @@
 #!/usr/bin/env bash
-# Prove the Cilium network policy is real and enforced, before showing what
-# it can't stop.
-#
-# Each check opens a TCP connection and reports what happened:
-#   CONNECTED  the connection was accepted
-#   TIMEOUT    packets were silently dropped (this is what a policy deny looks like)
-#   REFUSED    the packets arrived but nothing listens there (so the policy ALLOWED them)
-#
-# Connections are made with python3, not curl, so the Tetragon policies from
-# the later acts never interfere with this test. The one exception is the
-# tripwire lockdown (Act 5), which kills every connection from the webapp pod:
-# run `scripts/policy.sh reset` first if it is active.
-#
-# While the checks run, Cilium's own drop log is captured, so you can see the
-# agent itself reporting "Policy denied".
+# Act 0: check that the Cilium network policy is enforced.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export KUBECONFIG=${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}
@@ -28,13 +14,11 @@ except ConnectionRefusedError: print("REFUSED")
 except Exception as e: print("ERROR:" + type(e).__name__)'
 
 ATTACKER_IP=$(podman inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ebpf-attacker)
-# The API server's real address (not the service IP), from its EndpointSlice.
 API_IP=$(kubectl get endpointslices -n default -l kubernetes.io/service-name=kubernetes \
   -o jsonpath='{.items[0].endpoints[0].addresses[0]}')
 API_PORT=$(kubectl get endpointslices -n default -l kubernetes.io/service-name=kubernetes \
   -o jsonpath='{.items[0].ports[0].port}')
 
-# A throwaway pod that is NOT the webapp, to test the inventory's ingress rule.
 PROBE_POD=netpol-probe
 cleanup() {
   kubectl -n demo delete pod "$PROBE_POD" --ignore-not-found --wait=false >/dev/null 2>&1 || true
@@ -44,8 +28,6 @@ cleanup() {
 trap cleanup EXIT
 
 kubectl -n demo delete pod "$PROBE_POD" --ignore-not-found >/dev/null 2>&1 || true
-# Exits on SIGTERM so the pod goes away at once; a plain `sleep` as PID 1
-# ignores it and gets SIGKILLed after the 30 s grace period.
 kubectl -n demo run "$PROBE_POD" --image=docker.io/library/python:3.12-slim \
   --image-pull-policy=IfNotPresent --restart=Never --labels=app=netpol-probe \
   --command -- python3 -c 'import signal, sys, time
@@ -59,7 +41,7 @@ MON_PID=$!
 sleep 3
 
 PASS=0; FAIL=0
-check() { # check <from: webapp|probe> <label> <host> <port> <ALLOW|DENY>
+check() {
   local from=$1 label=$2 host=$3 port=$4 want=$5 got verdict
   if [ "$from" = webapp ]; then
     got=$(kubectl -n demo exec deploy/webapp -- python3 -c "$PROBE" "$host" "$port" "$TIMEOUT" 2>/dev/null || echo ERROR)

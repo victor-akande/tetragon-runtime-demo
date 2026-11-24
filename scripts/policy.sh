@@ -1,18 +1,5 @@
 #!/usr/bin/env bash
 # Manage the demo's Tetragon TracingPolicies.
-#
-#   scripts/policy.sh apply <file>...     apply policy files and wait until they are enabled
-#   scripts/policy.sh remove <file>...    delete policy files
-#   scripts/policy.sh enforce <name>      switch a policy to enforce mode (kills processes)
-#   scripts/policy.sh monitor <name>      switch a policy to monitor mode (report only)
-#   scripts/policy.sh list                show policies, their mode and counters
-#   scripts/policy.sh reset-tripwire      clear the tripwire's state (delete + re-apply it)
-#   scripts/policy.sh reset               remove all demo policies and restart the app
-#
-# `apply` waits until each policy is enabled; attacking before that tests
-# nothing. enforce/monitor pass --domain k8s, which `tetra tp set-mode` needs
-# for policies created with kubectl. A mode set here is lost when Tetragon
-# restarts or the policy is re-applied.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export KUBECONFIG=${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}
@@ -43,7 +30,6 @@ wait_enabled() {
 }
 
 names_in() {
-  # Print the policy names defined in the given files.
   awk '/^metadata:/{m=1; next} m && /^  name:/{print $2; m=0}' "$@"
 }
 
@@ -87,7 +73,16 @@ case "$cmd" in
     echo "Reset done: no demo policies, fresh webapp pod."
     ;;
   *)
-    sed -n '2,11p' "$0"
+    cat >&2 <<'EOF'
+usage: scripts/policy.sh <command>
+  apply <file>...    apply policy files and wait until they are enabled
+  remove <file>...   delete policy files
+  enforce <name>     switch a policy to enforce mode
+  monitor <name>     switch a policy to monitor mode
+  list               show policies, their mode and counters
+  reset-tripwire     clear the tripwire's state
+  reset              remove all demo policies and restart the app
+EOF
     exit 1
     ;;
 esac

@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
-# Pull every image the demo needs with podman, then import them into k3s.
-#
-# Why: on some networks k3s's built-in image pulls (containerd) from quay.io
-# stall for many minutes, while podman pulls the same images in seconds.
-# Pre-pulling makes the install fast and predictable. It is safe to run on a
-# network where pulls are fine too.
-#
-# Needs k3s to be installed (setup/02-install.sh calls this right after k3s).
-# Run as root. Re-runnable: images already in k3s are skipped.
+# Pre-pull the demo's images with podman and import them into k3s.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # shellcheck source=setup/versions.env
@@ -19,8 +11,6 @@ say() { printf '%s\n' "$*"; }
 helm repo add cilium https://helm.cilium.io >/dev/null 2>&1 || true
 helm repo update cilium >/dev/null
 
-# 1. Images in the Cilium and Tetragon charts, read from the rendered charts so
-#    the list always matches the versions in versions.env.
 chart_images() {
   grep -oE 'image: *"?[^" ]+' | sed -E 's/image: *"?//' | sed 's/@sha256.*//'
 }
@@ -29,7 +19,6 @@ CHART_IMAGES=$( {
   helm template tetragon cilium/tetragon --version "$TETRAGON_VERSION" -n kube-system | chart_images
 } | sort -u )
 
-# 2. k3s's own system images, from the image list published with the k3s release.
 K3S_VER=$(k3s --version | awk 'NR==1{print $3}')
 K3S_IMAGES=$(curl -fsSL "https://github.com/k3s-io/k3s/releases/download/${K3S_VER/+/%2B}/k3s-images.txt" 2>/dev/null \
   | grep -E 'pause|coredns|local-path|metrics-server' || true)
@@ -39,7 +28,6 @@ if [ -z "$K3S_IMAGES" ]; then
     | grep -Ev '^(quay.io/cilium|sha256:)' | sed 's/@sha256.*//' | sort -u || true)
 fi
 
-# 3. Images used by the demo itself.
 DEMO_IMAGES="docker.io/library/python:3.12-slim"
 
 normalize() {

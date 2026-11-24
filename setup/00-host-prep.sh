@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
-# Step 1 of 3: prepare a fresh Ubuntu VM (22.04 or newer). Run as root (sudo -i).
-#
-# Changes it makes (lab VM only):
-#   - installs curl, git, jq, podman, unzip
-#   - turns off swap (Kubernetes expects no swap)
-#   - turns off ufw if it is active (k3s and Cilium manage their own rules)
-#   - sets IP forwarding and loosens rp_filter for pod traffic
-#   - mounts bpffs and debugfs
-#   - installs Helm 3
+# Prepare a fresh Ubuntu VM for the demo. Run as root.
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -17,8 +9,6 @@ fi
 
 step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
-# k3s, Cilium and Tetragon load eBPF programs into the kernel. That needs a
-# real VM (or bare metal), not a container such as LXC/LXD or Docker.
 VIRT=$(systemd-detect-virt --container 2>/dev/null || true)
 if [ -n "$VIRT" ] && [ "$VIRT" != "none" ]; then
   echo "This machine is a container ($VIRT), not a VM." >&2

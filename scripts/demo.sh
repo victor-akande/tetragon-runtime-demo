@@ -1,18 +1,5 @@
 #!/usr/bin/env bash
-# Narrated demo runner: runs each act step by step and pauses before every
-# command so you can talk over it.
-#
-#   scripts/demo.sh act0      prove the network policy is enforced
-#   scripts/demo.sh act1      the attack succeeds despite the network policy
-#   scripts/demo.sh act2      apply the Tetragon policies in monitor mode
-#   scripts/demo.sh act3      enforce them one layer at a time
-#   scripts/demo.sh act4      show the matchCmdArgs bypass
-#   scripts/demo.sh act5      stateful tripwire: observe, then lockdown
-#   scripts/demo.sh all       acts 0 to 5 in order (starts with a reset)
-#   scripts/demo.sh reset     remove all demo policies and restart the app
-#
-# Keep scripts/watch-events.sh running in a second terminal.
-# NO_PAUSE=1 runs without waiting for Enter.
+# Narrated demo runner (docs/GUIDE.md, Step 6).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export KUBECONFIG=${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}
@@ -114,5 +101,12 @@ case "${1:-}" in
   act5) act5 ;;
   all)  scripts/policy.sh reset; act0; act1; act2; act3; act4; act5 ;;
   reset) scripts/policy.sh reset ;;
-  *) sed -n '2,14p' "$0"; exit 1 ;;
+  *) cat >&2 <<'EOF'
+usage: scripts/demo.sh <act0|act1|act2|act3|act4|act5|all|reset>
+  act0..act5  run one act, pausing before each command
+  all         reset, then acts 0 to 5
+  reset       remove all demo policies and restart the app
+Set NO_PAUSE=1 to run without waiting for Enter.
+EOF
+     exit 1 ;;
 esac

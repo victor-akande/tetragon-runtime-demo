@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
-# Step 3 of 3: install everything. Run as root. Takes about 10 minutes.
-#
-#   k3s          single-node Kubernetes, with its own CNI turned off
-#   Cilium       the CNI (pod networking and network policy)
-#   Tetragon     eBPF runtime security (the subject of the demo)
-#   demo app     a deliberately vulnerable Flask app, plus an "inventory" service
-#   attacker     a podman container OUTSIDE the cluster serving a fake toolkit
-#
-# Re-runnable: run it again after a failure or a VM reboot.
+# Install k3s, Cilium, Tetragon and the demo. Run as root. Re-runnable.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
