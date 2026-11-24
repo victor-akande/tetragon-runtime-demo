@@ -1,0 +1,78 @@
+# A reasonable, least-privilege-looking network policy for the webapp.
+# It is NOT the weak point in the demo. Every step of the attack is
+# traffic this policy is supposed to allow:
+#   - inbound HTTP to the app (that's how the exploit arrives)
+#   - outbound HTTP to the internet (the app "calls partner APIs")
+# The talk's point: network policy did its job, and the attack still worked.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: webapp
+  namespace: demo
+spec:
+  endpointSelector:
+    matchLabels:
+      app: webapp
+  ingress:
+    - fromEntities: ["world", "cluster"]
+      toPorts:
+        - ports:
+            - port: "5000"
+              protocol: TCP
+  egress:
+    # Internal dependency
+    - toEndpoints:
+        - matchLabels:
+            app: inventory
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    # DNS
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    # "Partner APIs" on the internet
+    - toEntities: ["world"]
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+    # "Partner network": the podman subnet where the attacker server lives.
+    # Listed explicitly in case Cilium doesn't classify it as "world".
+    - toCIDR:
+        - 10.88.0.0/16
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+    # Note: no egress to kube-apiserver. The pod cannot use the stolen
+    # token itself, so the attacker exfiltrates it and uses it from outside.
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: inventory
+  namespace: demo
+spec:
+  endpointSelector:
+    matchLabels:
+      app: inventory
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: webapp
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP

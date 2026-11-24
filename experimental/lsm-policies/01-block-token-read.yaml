@@ -1,0 +1,40 @@
+# BPF LSM variant: Override here makes the kernel reject the call itself.
+# Needs 'bpf' in /sys/kernel/security/lsm. Does NOT need CONFIG_BPF_KPROBE_OVERRIDE.
+# Layer: credential access
+# Block any process in the webapp pod from opening the service-account token.
+# The app itself never reads it, so nothing legitimate breaks.
+#
+# Ships in monitor mode. Switch to enforce with:
+#   scripts/policy.sh enforce lsm-block-token-read
+#
+# Before enforcing, check the real path in the events: the token is a symlink
+# (..data/token), and some images resolve /var/run to /run. Both prefixes are
+# listed for that reason.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: lsm-block-token-read
+  namespace: demo
+spec:
+  options:
+    - name: policy-mode
+      value: monitor
+  podSelector:
+    matchLabels:
+      app: webapp
+  lsmhooks:
+    - hook: file_open
+      args:
+        - index: 0
+          type: file
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: Prefix
+              values:
+                - /var/run/secrets/kubernetes.io/serviceaccount
+                - /run/secrets/kubernetes.io/serviceaccount
+          matchActions:
+            - action: Override
+              argError: -1
+            - action: Sigkill

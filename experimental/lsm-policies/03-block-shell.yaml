@@ -1,0 +1,40 @@
+# BPF LSM variant: Override here makes the kernel reject the call itself.
+# Needs 'bpf' in /sys/kernel/security/lsm. Does NOT need CONFIG_BPF_KPROBE_OVERRIDE.
+# Layer: execution
+# The app never needs a shell. Stop any shell from starting in the webapp pod.
+# This alone ends the attack at step one, which is why the demo applies it
+# last: policies 01 and 02 show defense in depth if this layer is ever missed.
+#
+# Side effect: `kubectl exec -it ... -- sh` into this pod will also fail.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: lsm-block-shell
+  namespace: demo
+spec:
+  options:
+    - name: policy-mode
+      value: monitor
+  podSelector:
+    matchLabels:
+      app: webapp
+  lsmhooks:
+    - hook: bprm_check_security
+      args:
+        - index: 0
+          type: linux_binprm
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: Equal
+              values:
+                - /bin/sh
+                - /usr/bin/sh
+                - /bin/dash
+                - /usr/bin/dash
+                - /bin/bash
+                - /usr/bin/bash
+          matchActions:
+            - action: Override
+              argError: -1
+            - action: Sigkill

@@ -1,0 +1,42 @@
+# Layer 1: credential access
+#
+# What it does:  kills any process in the webapp pod that opens the pod's
+#                Kubernetes service-account token.
+# Why it's safe: the app never reads its own token, so nothing legitimate
+#                breaks.
+# How:           a kprobe on the kernel function security_file_open, which
+#                runs for every file open. The selector only matches paths
+#                under the token directory.
+#
+# Ships in monitor mode (report only). Switch to enforce with:
+#   scripts/policy.sh enforce block-token-read
+#
+# Both path prefixes are listed because /var/run is a symlink to /run in many
+# images, and Tetragon reports the path it resolved.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: block-token-read
+  namespace: demo
+spec:
+  options:
+    - name: policy-mode
+      value: monitor
+  podSelector:
+    matchLabels:
+      app: webapp
+  kprobes:
+    - call: security_file_open
+      syscall: false
+      args:
+        - index: 0
+          type: file
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: Prefix
+              values:
+                - /var/run/secrets/kubernetes.io/serviceaccount
+                - /run/secrets/kubernetes.io/serviceaccount
+          matchActions:
+            - action: Sigkill

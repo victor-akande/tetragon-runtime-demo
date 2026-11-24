@@ -1,0 +1,57 @@
+# Layer 4b: stateful tripwire, lockdown
+#
+# Same as 04-tripwire-observe.yaml, plus Sigkill: once the decoy credentials
+# have been read, every process in the pod that tries to connect() is killed.
+#
+# Tested result (Tetragon 1.8.0): state-gated Sigkill works. The trade-off is
+# that the lockdown also kills the app's own legitimate traffic (its curl to
+# the inventory service) until the state is reset:
+#   scripts/policy.sh reset-tripwire
+#
+# Don't apply this at the same time as 04-tripwire-observe.yaml. The demo
+# script removes the observe version first.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: tripwire-lockdown
+  namespace: demo
+spec:
+  podSelector:
+    matchLabels:
+      app: webapp
+  state:
+    - name: tripped
+  kprobes:
+    - call: security_file_open
+      syscall: false
+      args:
+        - index: 0
+          type: file
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: Equal
+              values:
+                - /app/.aws/credentials
+          matchActions:
+            - action: UpdateState
+              state:
+                name: tripped
+                operator: Set
+                value: "1"
+            - action: Post
+    - call: security_socket_connect
+      syscall: false
+      args:
+        - index: 0
+          type: socket
+        - index: 1
+          type: sockaddr
+      selectors:
+        - matchStates:
+            - name: tripped
+              operator: Equal
+              value: "1"
+          matchActions:
+            - action: Post
+            - action: Sigkill
